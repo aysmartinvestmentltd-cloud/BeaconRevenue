@@ -1,0 +1,6 @@
+{
+  "name": "Beacon Revenue",
+  "description": "Beacon Revenue — Standalone budget tracking, ALATPay by Wema bank synchronization, real-time spending insights, direct US auto acquisition, and bioscience asset analytics by E-Y Investment Limited.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

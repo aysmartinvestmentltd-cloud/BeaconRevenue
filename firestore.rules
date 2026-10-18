@@ -1,0 +1,241 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Hardened Global Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // 3. Entity Validation Blueprints
+    function isValidUserWallet(data) {
+      return data.keys().hasAll([
+        'uid', 'fullName', 'wemaVirtualAccount',
+        'walletBalanceNgn', 'walletBalanceUsd',
+        'monthlyBudgetNgn', 'monthlyBudgetUsd',
+        'kycVerified', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'uid', 'fullName', 'wemaVirtualAccount',
+        'walletBalanceNgn', 'walletBalanceUsd',
+        'monthlyBudgetNgn', 'monthlyBudgetUsd',
+        'kycVerified', 'updatedAt'
+      ]) &&
+      data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 && data.uid == request.auth.uid &&
+      data.fullName is string && data.fullName.size() >= 1 && data.fullName.size() <= 120 &&
+      data.wemaVirtualAccount is string && data.wemaVirtualAccount.size() >= 10 && data.wemaVirtualAccount.size() <= 20 &&
+      data.walletBalanceNgn is number && data.walletBalanceNgn >= 0 &&
+      data.walletBalanceUsd is number && data.walletBalanceUsd >= 0 &&
+      data.monthlyBudgetNgn is number && data.monthlyBudgetNgn >= 0 &&
+      data.monthlyBudgetUsd is number && data.monthlyBudgetUsd >= 0 &&
+      data.kycVerified is bool &&
+      data.updatedAt is timestamp && data.updatedAt == request.time;
+    }
+
+    function isValidBankAccount(data) {
+      return data.keys().hasAll([
+        'uid', 'institutionName', 'accountNumberMasked',
+        'accountType', 'currency', 'balance',
+        'autoSyncEnabled', 'lastSyncedIso', 'createdAt'
+      ]) &&
+      data.keys().hasOnly([
+        'uid', 'institutionName', 'accountNumberMasked',
+        'accountType', 'currency', 'balance',
+        'autoSyncEnabled', 'lastSyncedIso', 'createdAt'
+      ]) &&
+      data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 && data.uid == request.auth.uid &&
+      data.institutionName is string && data.institutionName.size() >= 1 && data.institutionName.size() <= 100 &&
+      data.accountNumberMasked is string && data.accountNumberMasked.size() >= 4 && data.accountNumberMasked.size() <= 32 &&
+      data.accountType is string && data.accountType.size() >= 1 && data.accountType.size() <= 60 &&
+      data.currency is string && data.currency in ['NGN', 'USD'] &&
+      data.balance is number &&
+      data.autoSyncEnabled is bool &&
+      data.lastSyncedIso is string && data.lastSyncedIso.size() >= 10 && data.lastSyncedIso.size() <= 40 &&
+      data.createdAt is timestamp;
+    }
+
+    function isValidBudgetCategory(data) {
+      return data.keys().hasAll([
+        'uid', 'name', 'currency',
+        'allocatedAmount', 'spentAmount',
+        'alertThresholdPct', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'uid', 'name', 'currency',
+        'allocatedAmount', 'spentAmount',
+        'alertThresholdPct', 'updatedAt'
+      ]) &&
+      data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 && data.uid == request.auth.uid &&
+      data.name is string && data.name.size() >= 1 && data.name.size() <= 80 &&
+      data.currency is string && data.currency in ['NGN', 'USD'] &&
+      data.allocatedAmount is number && data.allocatedAmount >= 0 &&
+      data.spentAmount is number && data.spentAmount >= 0 &&
+      data.alertThresholdPct is number && data.alertThresholdPct >= 1 && data.alertThresholdPct <= 100 &&
+      data.updatedAt is timestamp && data.updatedAt == request.time;
+    }
+
+    function isValidTransactionRecord(data) {
+      return data.keys().hasAll([
+        'uid', 'alatpayReference', 'type',
+        'category', 'description', 'currency',
+        'amount', 'paymentChannel', 'createdAt'
+      ]) &&
+      data.keys().hasOnly([
+        'uid', 'alatpayReference', 'type',
+        'category', 'description', 'currency',
+        'amount', 'paymentChannel', 'createdAt'
+      ]) &&
+      data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 && data.uid == request.auth.uid &&
+      data.alatpayReference is string && data.alatpayReference.size() >= 3 && data.alatpayReference.size() <= 80 &&
+      data.type is string && data.type in [
+        'BANK_SYNC_INFLOW', 'BANK_SYNC_SPEND', 'BIDDING_DEPOSIT',
+        'VEHICLE_SETTLEMENT', 'CUSTOMS_CLEARING', 'FREIGHT_PAYMENT'
+      ] &&
+      data.category is string && data.category.size() >= 1 && data.category.size() <= 80 &&
+      data.description is string && data.description.size() >= 1 && data.description.size() <= 240 &&
+      data.currency is string && data.currency in ['NGN', 'USD'] &&
+      data.amount is number && data.amount > 0 &&
+      data.paymentChannel is string && data.paymentChannel.size() >= 1 && data.paymentChannel.size() <= 80 &&
+      data.createdAt is timestamp;
+    }
+
+    function isValidProxyBid(data) {
+      return data.keys().hasAll([
+        'uid', 'lotId', 'vehicleTitle',
+        'maxProxyBidUsd', 'depositPaidNgn',
+        'alatpayReference', 'status', 'createdAt'
+      ]) &&
+      data.keys().hasOnly([
+        'uid', 'lotId', 'vehicleTitle',
+        'maxProxyBidUsd', 'depositPaidNgn',
+        'alatpayReference', 'status', 'createdAt'
+      ]) &&
+      data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 && data.uid == request.auth.uid &&
+      data.lotId is string && data.lotId.size() >= 3 && data.lotId.size() <= 40 &&
+      data.vehicleTitle is string && data.vehicleTitle.size() >= 3 && data.vehicleTitle.size() <= 140 &&
+      data.maxProxyBidUsd is number && data.maxProxyBidUsd > 0 &&
+      data.depositPaidNgn is number && data.depositPaidNgn >= 0 &&
+      data.alatpayReference is string && data.alatpayReference.size() >= 3 && data.alatpayReference.size() <= 80 &&
+      data.status is string && data.status in ['ACTIVE_PROXY', 'WINNING', 'WON', 'OUTBID', 'REFUNDED'] &&
+      data.createdAt is timestamp;
+    }
+
+    function isValidInspectionBooking(data) {
+      return data.keys().hasAll([
+        'uid', 'lotId', 'vehicleTitle',
+        'scheduledIso', 'inspectorName',
+        'specialistNotes', 'status', 'createdAt'
+      ]) &&
+      data.keys().hasOnly([
+        'uid', 'lotId', 'vehicleTitle',
+        'scheduledIso', 'inspectorName',
+        'specialistNotes', 'status', 'createdAt'
+      ]) &&
+      data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 && data.uid == request.auth.uid &&
+      data.lotId is string && data.lotId.size() >= 3 && data.lotId.size() <= 40 &&
+      data.vehicleTitle is string && data.vehicleTitle.size() >= 3 && data.vehicleTitle.size() <= 140 &&
+      data.scheduledIso is string && data.scheduledIso.size() >= 10 && data.scheduledIso.size() <= 40 &&
+      data.inspectorName is string && data.inspectorName.size() >= 2 && data.inspectorName.size() <= 100 &&
+      data.specialistNotes is string && data.specialistNotes.size() >= 0 && data.specialistNotes.size() <= 400 &&
+      data.status is string && data.status in ['CONFIRMED', 'COMPLETED', 'CANCELLED'] &&
+      data.createdAt is timestamp;
+    }
+
+    // 4. Collection Match Blocks
+    match /users/{userId}/private/{docId} {
+      allow get: if isOwner(userId) && isValidId(userId) && isValidId(docId);
+      allow list: if isOwner(userId);
+      allow create: if isVerifiedUser() && isOwner(userId) && isValidId(userId) && isValidId(docId) && isValidUserWallet(incoming());
+      allow update: if isVerifiedUser() && isOwner(userId) && isValidId(userId) && isValidId(docId) && isValidUserWallet(incoming()) &&
+        incoming().uid == existing().uid &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'fullName', 'wemaVirtualAccount', 'walletBalanceNgn',
+          'walletBalanceUsd', 'monthlyBudgetNgn', 'monthlyBudgetUsd',
+          'kycVerified', 'updatedAt'
+        ]);
+      allow delete: if false;
+    }
+
+    match /bankAccounts/{accountId} {
+      allow get: if isSignedIn() && isValidId(accountId) && existing().uid == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow create: if isVerifiedUser() && isValidId(accountId) && isValidBankAccount(incoming()) && incoming().createdAt == request.time;
+      allow update: if isVerifiedUser() && isValidId(accountId) && isValidBankAccount(incoming()) &&
+        existing().uid == request.auth.uid &&
+        incoming().uid == existing().uid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['balance', 'autoSyncEnabled', 'lastSyncedIso']);
+      allow delete: if isVerifiedUser() && isValidId(accountId) && existing().uid == request.auth.uid;
+    }
+
+    match /budgets/{budgetId} {
+      allow get: if isSignedIn() && isValidId(budgetId) && existing().uid == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow create: if isVerifiedUser() && isValidId(budgetId) && isValidBudgetCategory(incoming());
+      allow update: if isVerifiedUser() && isValidId(budgetId) && isValidBudgetCategory(incoming()) &&
+        existing().uid == request.auth.uid &&
+        incoming().uid == existing().uid &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['name', 'allocatedAmount', 'spentAmount', 'alertThresholdPct', 'updatedAt']);
+      allow delete: if isVerifiedUser() && isValidId(budgetId) && existing().uid == request.auth.uid;
+    }
+
+    match /transactions/{transactionId} {
+      allow get: if isSignedIn() && isValidId(transactionId) && existing().uid == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow create: if isVerifiedUser() && isValidId(transactionId) && isValidTransactionRecord(incoming()) && incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    match /bids/{bidId} {
+      allow get: if isSignedIn() && isValidId(bidId) && existing().uid == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow create: if isVerifiedUser() && isValidId(bidId) && isValidProxyBid(incoming()) && incoming().createdAt == request.time;
+      allow update: if isVerifiedUser() && isValidId(bidId) && isValidProxyBid(incoming()) &&
+        existing().uid == request.auth.uid &&
+        incoming().uid == existing().uid &&
+        incoming().createdAt == existing().createdAt &&
+        !(existing().status in ['WON', 'REFUNDED']) &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['maxProxyBidUsd', 'depositPaidNgn', 'status']);
+      allow delete: if false;
+    }
+
+    match /bookings/{bookingId} {
+      allow get: if isSignedIn() && isValidId(bookingId) && existing().uid == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow create: if isVerifiedUser() && isValidId(bookingId) && isValidInspectionBooking(incoming()) && incoming().createdAt == request.time;
+      allow update: if isVerifiedUser() && isValidId(bookingId) && isValidInspectionBooking(incoming()) &&
+        existing().uid == request.auth.uid &&
+        incoming().uid == existing().uid &&
+        incoming().createdAt == existing().createdAt &&
+        !(existing().status in ['COMPLETED', 'CANCELLED']) &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['scheduledIso', 'specialistNotes', 'status']);
+      allow delete: if isVerifiedUser() && isValidId(bookingId) && existing().uid == request.auth.uid;
+    }
+  }
+}

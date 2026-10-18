@@ -1,0 +1,199 @@
+// Smart Ride (by E-Y Investment Limited) - Standalone Relational Schema
+// Supports Dual-Currency (NGN ₦ / USD $) Budget Tracking, ALATPay Bank Sync,
+// US Direct Auto Acquisition, Proxy Bidding, Logistics, and Invoicing.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Currency {
+  NGN
+  USD
+}
+
+enum TitleStatus {
+  CLEAN_TITLE
+  SALVAGE_CERTIFICATE
+  REBUILT_VERIFIED
+}
+
+enum DrivetrainCondition {
+  RUN_AND_DRIVE
+  STARTS_AND_idles
+  STATIONARY_VERIFIED
+}
+
+enum BidStatus {
+  PENDING_DEPOSIT
+  ACTIVE_PROXY
+  WINNING
+  WON
+  OUTBID
+  REFUNDED
+}
+
+enum TransactionType {
+  BANK_SYNC_INFLOW
+  BANK_SYNC_SPEND
+  BIDDING_DEPOSIT
+  VEHICLE_SETTLEMENT
+  CUSTOMS_CLEARING
+  FREIGHT_PAYMENT
+}
+
+enum LogisticsMilestone {
+  US_YARD_ACQUIRED
+  PORT_TOWING_COMPLETE
+  OCEAN_TRANSIT_RORO
+  TINCAN_APAPA_CUSTOMS
+  EY_LAGOS_HUB_READY
+  DELIVERED_TO_CLIENT
+}
+
+model User {
+  id                  String        @id @default(cuid())
+  firebaseUid         String        @unique
+  email               String        @unique
+  fullName            String
+  phone               String?
+  kycNinVerified      Boolean       @default(false)
+  kycBvnVerified      Boolean       @default(false)
+  driversLicenseNo    String?
+  wemaVirtualAccount  String?       @unique
+  walletBalanceNgn    Decimal       @default(0.00) @db.Decimal(18, 2)
+  walletBalanceUsd    Decimal       @default(0.00) @db.Decimal(18, 2)
+  monthlyBudgetNgn    Decimal       @default(25000000.00) @db.Decimal(18, 2)
+  monthlyBudgetUsd    Decimal       @default(15500.00) @db.Decimal(18, 2)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  bankAccounts        BankAccount[]
+  transactions        Transaction[]
+  budgets             BudgetCategory[]
+  bids                Bid[]
+  bookings            InspectionBooking[]
+  invoices            Invoice[]
+}
+
+model BankAccount {
+  id                  String        @id @default(cuid())
+  userId              String
+  user                User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  institutionName     String        // e.g. "Wema Bank ALAT", "Wema Corporate Domiciliary"
+  accountNumberMasked String
+  accountType         String        // "NGN Current", "USD Domiciliary", "ALAT Virtual"
+  currency            Currency      @default(NGN)
+  balance             Decimal       @db.Decimal(18, 2)
+  autoSyncEnabled     Boolean       @default(true)
+  lastSyncedAt        DateTime      @default(now())
+}
+
+model BudgetCategory {
+  id                  String        @id @default(cuid())
+  userId              String
+  user                User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name                String        // e.g. "Vehicle Acquisition", "Ocean Freight & Clearing", "Operations & Fuel", "Biotech & Lab R&D"
+  currency            Currency      @default(NGN)
+  allocatedAmount     Decimal       @db.Decimal(18, 2)
+  spentAmount         Decimal       @db.Decimal(18, 2)
+  alertThresholdPct   Int           @default(85)
+  updatedAt           DateTime      @updatedAt
+}
+
+model Vehicle {
+  id                  String              @id @default(cuid())
+  lotId               String              @unique // e.g. "SR-US-90418" (100% White-labeled Smart Ride Verified Stock)
+  vin                 String              @unique
+  engineNumber        String
+  year                Int
+  make                String
+  model               String
+  trim                String
+  exteriorColor       String
+  interiorColor       String
+  mileageMiles        Int
+  titleStatus         TitleStatus         @default(CLEAN_TITLE)
+  condition           DrivetrainCondition @default(RUN_AND_DRIVE)
+  usDeparturePort     String              // "Newark, NJ", "Houston, TX", "Savannah, GA"
+  currentBidUsd       Decimal             @db.Decimal(12, 2)
+  buyNowPriceUsd      Decimal             @db.Decimal(12, 2)
+  estimatedRepairUsd  Decimal             @default(0.00) @db.Decimal(12, 2)
+  primaryNote         String              @default("None - Smart Ride Executive Verified")
+  secondaryNote       String              @default("Factory Paint Spec")
+  undercarriageNote   String              @default("Dry & Rust-Free")
+  logisticsStage      LogisticsMilestone  @default(US_YARD_ACQUIRED)
+  createdAt           DateTime            @default(now())
+
+  bids                Bid[]
+  bookings            InspectionBooking[]
+  invoices            Invoice[]
+}
+
+model Bid {
+  id                  String        @id @default(cuid())
+  userId              String
+  user                User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicleId           String
+  vehicle             Vehicle       @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  maxProxyBidUsd      Decimal       @db.Decimal(12, 2)
+  depositRequiredUsd  Decimal       @db.Decimal(12, 2)
+  depositPaidNgn      Decimal       @db.Decimal(18, 2)
+  alatpayReference    String        @unique
+  status              BidStatus     @default(ACTIVE_PROXY)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+}
+
+model Transaction {
+  id                  String          @id @default(cuid())
+  userId              String
+  user                User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  alatpayReference    String          @unique
+  type                TransactionType
+  category            String
+  description         String
+  currency            Currency
+  amount              Decimal         @db.Decimal(18, 2)
+  exchangeRateUsed    Decimal         @default(1600.00) @db.Decimal(10, 2)
+  paymentChannel      String          // "ALATPay Card", "Wema Virtual Account", "USD Domiciliary Wire", "Direct Bank Sync"
+  verifiedViaWebhook  Boolean         @default(true)
+  createdAt           DateTime        @default(now())
+}
+
+model InspectionBooking {
+  id                  String        @id @default(cuid())
+  userId              String
+  user                User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicleId           String
+  vehicle             Vehicle       @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  scheduledAt         DateTime
+  inspectorName       String        @default("Engr. Tunde Bakare (Smart Ride US Yard Lead)")
+  liveStreamRoomId    String
+  specialistNotes     String?
+  status              String        @default("CONFIRMED")
+  createdAt           DateTime      @default(now())
+}
+
+model Invoice {
+  id                  String        @id @default(cuid())
+  invoiceNumber       String        @unique // e.g. "EY-INV-2026-8841"
+  userId              String
+  user                User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicleId           String
+  vehicle             Vehicle       @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  bidHammerUsd        Decimal       @db.Decimal(12, 2)
+  usPortTowingUsd     Decimal       @db.Decimal(12, 2)
+  oceanFreightUsd     Decimal       @db.Decimal(12, 2)
+  customsDutyNgn      Decimal       @db.Decimal(18, 2)
+  eyBrokerageFeeUsd   Decimal       @db.Decimal(12, 2)
+  totalLandingUsd     Decimal       @db.Decimal(12, 2)
+  totalLandingNgn     Decimal       @db.Decimal(18, 2)
+  amountPaidNgn       Decimal       @db.Decimal(18, 2)
+  driveFileId         String?
+  issuedAt            DateTime      @default(now())
+}

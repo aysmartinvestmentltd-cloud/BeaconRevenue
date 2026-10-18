@@ -1,0 +1,353 @@
+{
+  "entities": {
+    "UserWallet": {
+      "title": "UserWallet",
+      "description": "Private user budget configuration, Wema virtual account, and dual-currency wallet balances.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "fullName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "wemaVirtualAccount": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 20
+        },
+        "walletBalanceNgn": {
+          "type": "number"
+        },
+        "walletBalanceUsd": {
+          "type": "number"
+        },
+        "monthlyBudgetNgn": {
+          "type": "number"
+        },
+        "monthlyBudgetUsd": {
+          "type": "number"
+        },
+        "kycVerified": {
+          "type": "boolean"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "uid",
+        "fullName",
+        "wemaVirtualAccount",
+        "walletBalanceNgn",
+        "walletBalanceUsd",
+        "monthlyBudgetNgn",
+        "monthlyBudgetUsd",
+        "kycVerified",
+        "updatedAt"
+      ]
+    },
+    "BankAccount": {
+      "title": "BankAccount",
+      "description": "Synced bank account or domiciliary account linked via ALATPay / Wema Bank.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "institutionName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "accountNumberMasked": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 32
+        },
+        "accountType": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "currency": {
+          "type": "string",
+          "enum": ["NGN", "USD"]
+        },
+        "balance": {
+          "type": "number"
+        },
+        "autoSyncEnabled": {
+          "type": "boolean"
+        },
+        "lastSyncedIso": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 40
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "uid",
+        "institutionName",
+        "accountNumberMasked",
+        "accountType",
+        "currency",
+        "balance",
+        "autoSyncEnabled",
+        "lastSyncedIso",
+        "createdAt"
+      ]
+    },
+    "BudgetCategory": {
+      "title": "BudgetCategory",
+      "description": "Real-time budget allocation and spending category.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "currency": {
+          "type": "string",
+          "enum": ["NGN", "USD"]
+        },
+        "allocatedAmount": {
+          "type": "number"
+        },
+        "spentAmount": {
+          "type": "number"
+        },
+        "alertThresholdPct": {
+          "type": "number"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "uid",
+        "name",
+        "currency",
+        "allocatedAmount",
+        "spentAmount",
+        "alertThresholdPct",
+        "updatedAt"
+      ]
+    },
+    "TransactionRecord": {
+      "title": "TransactionRecord",
+      "description": "Synced bank transaction, ALATPay bidding deposit, or customs/freight settlement.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "alatpayReference": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 80
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "BANK_SYNC_INFLOW",
+            "BANK_SYNC_SPEND",
+            "BIDDING_DEPOSIT",
+            "VEHICLE_SETTLEMENT",
+            "CUSTOMS_CLEARING",
+            "FREIGHT_PAYMENT"
+          ]
+        },
+        "category": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "currency": {
+          "type": "string",
+          "enum": ["NGN", "USD"]
+        },
+        "amount": {
+          "type": "number"
+        },
+        "paymentChannel": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "uid",
+        "alatpayReference",
+        "type",
+        "category",
+        "description",
+        "currency",
+        "amount",
+        "paymentChannel",
+        "createdAt"
+      ]
+    },
+    "ProxyBid": {
+      "title": "ProxyBid",
+      "description": "User proxy bid on a Smart Ride US Direct vehicle with ALATPay deposit commitment.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "lotId": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 40
+        },
+        "vehicleTitle": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 140
+        },
+        "maxProxyBidUsd": {
+          "type": "number"
+        },
+        "depositPaidNgn": {
+          "type": "number"
+        },
+        "alatpayReference": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 80
+        },
+        "status": {
+          "type": "string",
+          "enum": ["ACTIVE_PROXY", "WINNING", "WON", "OUTBID", "REFUNDED"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "uid",
+        "lotId",
+        "vehicleTitle",
+        "maxProxyBidUsd",
+        "depositPaidNgn",
+        "alatpayReference",
+        "status",
+        "createdAt"
+      ]
+    },
+    "InspectionBooking": {
+      "title": "InspectionBooking",
+      "description": "Scheduled Live Virtual Yard inspection walk-around booking.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "lotId": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 40
+        },
+        "vehicleTitle": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 140
+        },
+        "scheduledIso": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 40
+        },
+        "inspectorName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 100
+        },
+        "specialistNotes": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 400
+        },
+        "status": {
+          "type": "string",
+          "enum": ["CONFIRMED", "COMPLETED", "CANCELLED"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "uid",
+        "lotId",
+        "vehicleTitle",
+        "scheduledIso",
+        "inspectorName",
+        "specialistNotes",
+        "status",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/private/{docId}": {
+      "schema": { "$ref": "#/entities/UserWallet" },
+      "description": "Private user wallet and budget settings isolated by owner UID."
+    },
+    "/bankAccounts/{accountId}": {
+      "schema": { "$ref": "#/entities/BankAccount" },
+      "description": "Synced bank accounts owned by a user."
+    },
+    "/budgets/{budgetId}": {
+      "schema": { "$ref": "#/entities/BudgetCategory" },
+      "description": "Budget categories and spending thresholds owned by a user."
+    },
+    "/transactions/{transactionId}": {
+      "schema": { "$ref": "#/entities/TransactionRecord" },
+      "description": "Real-time bank sync and ALATPay transaction records owned by a user."
+    },
+    "/bids/{bidId}": {
+      "schema": { "$ref": "#/entities/ProxyBid" },
+      "description": "Proxy bids placed on Smart Ride US Direct vehicles."
+    },
+    "/bookings/{bookingId}": {
+      "schema": { "$ref": "#/entities/InspectionBooking" },
+      "description": "Scheduled Live Virtual Yard inspection appointments."
+    }
+  }
+}
